@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心靈島的漂流：全球心理衛生大富翁</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden-screen { display: none !important; }
+        .fade-in { animation: fadeIn 0.35s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #modal-overlay {
+            background-color: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(2px);
+        }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(7, 1fr);
+            gap: 6px;
+            width: 100%;
+            max-width: 760px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+        }
+        .tile {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 3px;
+            position: relative;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+        /* 7x7 外圍 24 格順時針排列 */
+        .tile-0  { grid-area: 1 / 1 / 2 / 2; }
+        .tile-1  { grid-area: 1 / 2 / 2 / 3; }
+        .tile-2  { grid-area: 1 / 3 / 2 / 4; }
+        .tile-3  { grid-area: 1 / 4 / 2 / 5; }
+        .tile-4  { grid-area: 1 / 5 / 2 / 6; }
+        .tile-5  { grid-area: 1 / 6 / 2 / 7; }
+        .tile-6  { grid-area: 1 / 7 / 2 / 8; }
+        .tile-7  { grid-area: 2 / 7 / 3 / 8; }
+        .tile-8  { grid-area: 3 / 7 / 4 / 8; }
+        .tile-9  { grid-area: 4 / 7 / 5 / 8; }
+        .tile-10 { grid-area: 5 / 7 / 6 / 8; }
+        .tile-11 { grid-area: 6 / 7 / 7 / 8; }
+        .tile-12 { grid-area: 7 / 7 / 8 / 8; }
+        .tile-13 { grid-area: 7 / 6 / 8 / 7; }
+        .tile-14 { grid-area: 7 / 5 / 8 / 6; }
+        .tile-15 { grid-area: 7 / 4 / 8 / 5; }
+        .tile-16 { grid-area: 7 / 3 / 8 / 4; }
+        .tile-17 { grid-area: 7 / 2 / 8 / 3; }
+        .tile-18 { grid-area: 7 / 1 / 8 / 2; }
+        .tile-19 { grid-area: 6 / 1 / 7 / 2; }
+        .tile-20 { grid-area: 5 / 1 / 6 / 2; }
+        .tile-21 { grid-area: 4 / 1 / 5 / 2; }
+        .tile-22 { grid-area: 3 / 1 / 4 / 2; }
+        .tile-23 { grid-area: 2 / 1 / 3 / 2; }
+
+        /* 棋盤正中央 5x5 區域：放置擲骰子與回合控制面板 */
+        .board-center {
+            grid-area: 2 / 2 / 7 / 7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #eef2ff 0%, #ffffff 55%, #f0f9ff 100%);
+            border: 2px solid #c7d2fe;
+            box-shadow: inset 0 2px 10px rgba(99, 102, 241, 0.08);
+            overflow: hidden;
+            padding: 12px;
+        }
+
+        .tokens-layer {
+            position: absolute;
+            inset: 2px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 2px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .player-token {
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 800;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+            border: 1.5px solid white;
+            animation: bounce 1.1s infinite alternate;
+        }
+        .token-1 { background: #ef4444; }
+        .token-2 { background: #3b82f6; animation-delay: 0.15s; }
+        .token-3 { background: #10b981; animation-delay: 0.3s; }
+        .token-4 { background: #f59e0b; animation-delay: 0.45s; }
+        .token-5 { background: #8b5cf6; animation-delay: 0.6s; }
+        .token-6 { background: #ec4899; animation-delay: 0.75s; }
+        .token-7 { background: #06b6d4; animation-delay: 0.9s; }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-3px); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-gray-800">
+    <!-- 頂部標題與回合顯示列 -->
+    <header class="bg-indigo-700 text-white shadow-md px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="text-2xl">🧠</span>
+            <div>
+                <h1 class="text-base sm:text-lg font-extrabold leading-tight">心靈島的漂流：全球心理衛生大富翁</h1>
+                <p class="text-[11px] sm:text-xs text-indigo-200">公共衛生護理學｜7 組分組對戰互動版（支援單機／連線）</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div id="room-badge" class="hidden bg-emerald-600 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold border border-emerald-300 flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500 transition" onclick="copyRoomCode()" title="點擊複製房號">
+                <span>🌐 房號：<span id="header-room-code" class="tracking-widest"></span></span>
+                <span class="text-[10px] bg-emerald-800 px-1.5 py-0.5 rounded">複製</span>
+            </div>
+            <div id="turn-counter" class="hidden bg-indigo-900 bg-opacity-70 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold border border-indigo-400">
+                第 <span id="round-num" class="text-amber-300">1</span> 回合
+            </div>
+        </div>
+    </header>
+
+    <!-- 頂部浮動通知訊息（取代 alert） -->
+    <div id="toast-msg" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl hidden transition-all">
+    </div>
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-6">
+        
+        <!-- Screen 1: Role Selection -->
+        <div id="screen-role-select" class="max-w-6xl mx-auto flex flex-col items-center fade-in">
+            <h2 class="text-2xl font-bold mb-2 text-center">全班分組對戰：加入組別（最多 7 組）</h2>
+            <p class="text-gray-600 mb-4 text-center text-sm md:text-base">可選擇「單機多人」共用大螢幕，或切換「多人連線房間」讓各組用手機／平板輸入房號即時同步對戰！</p>
+
+            <!-- 模式切換分頁 -->
+            <div class="inline-flex bg-gray-200 p-1 rounded-xl mb-5 shadow-inner">
+                <button id="tab-local" onclick="switchMode('local')" class="px-5 py-2 rounded-lg text-sm font-bold transition bg-white text-indigo-700 shadow">
+                    🖥️ 單機多人模式
+                </button>
+                <button id="tab-online" onclick="switchMode('online')" class="px-5 py-2 rounded-lg text-sm font-bold transition text-gray-600 hover:text-gray-800">
+                    🌐 多人連線房間
+                </button>
+            </div>
+
+            <!-- 單機模式快速操作列 -->
+            <div id="local-controls" class="flex flex-wrap gap-3 justify-center mb-6">
+                <button onclick="quickFillSevenTeams()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition text-sm">
+                    ⚡ 一鍵加入 7 組（7 種角色各一組）
+                </button>
+                <button onclick="clearPlayers()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition text-sm">
+                    🗑️ 清空已加入組別
+                </button>
+            </div>
+
+            <!-- 連線模式控制面板 -->
+            <div id="online-controls" class="hidden w-full max-w-3xl bg-white p-5 rounded-xl shadow-md border-t-4 border-emerald-500 mb-6">
+                <!-- 尚未進入房間 -->
+                <div id="online-entry" class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div class="flex-1 w-full">
+                        <div class="text-sm font-bold text-gray-800 mb-1">🏠 主持人／教師開房</div>
+                        <p class="text-xs text-gray-500 mb-2">建立新房間後，將 6 碼房號投影給全班輸入即可加入。</p>
+                        <button onclick="createOnlineRoom()" id="btn-create-room" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm">
+                            ＋ 建立連線房間
+                        </button>
+                    </div>
+                    <div class="text-gray-300 font-bold hidden sm:block">或</div>
+                    <div class="flex-1 w-full">
+                        <div class="text-sm font-bold text-gray-800 mb-1">📱 各組學生加入房間</div>
+                        <p class="text-xs text-gray-500 mb-2">輸入主持人提供的 6 碼房號，進入後點選下方角色即可參戰。</p>
+                        <div class="flex gap-2">
+                            <input id="input-room-code" type="text" maxlength="6" placeholder="輸入房號 (例: A1B2C3)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            <button onclick="joinOnlineRoom()" id="btn-join-room" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition text-sm shrink-0">
+                                加入
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 已進入連線房間大廳 -->
+                <div id="online-lobby-info" class="hidden flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-lg">
+                        <div>
+                            <div class="text-xs text-emerald-700 font-semibold">已連線至房間（同步中）</div>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="text-2xl font-extrabold font-mono tracking-widest text-emerald-900" id="lobby-room-code">------</span>
+                                <button onclick="copyRoomCode()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 py-1 rounded-md transition">
+                                    📋 複製房號
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="lobby-role-badge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700"></span>
+                            <button onclick="leaveOnlineRoom()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                                離開房間
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-600">
+                        <div class="flex items-center gap-2">
+                            <label for="input-team-name" class="font-bold shrink-0">本組名稱：</label>
+                            <input id="input-team-name" type="text" maxlength="12" placeholder="選填（例：第1組）" class="border border-gray-300 rounded-md px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        </div>
+                        <div class="text-[11px] text-gray-400 break-all">
+                            連線識別碼：<span id="display-user-id" class="font-mono">連線中...</span>
+                        </div>
+                    </div>
+                    <div id="online-pick-hint" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-2 rounded-lg">
+                        👇 請點擊下方任一張公衛角色卡，加入本房間對戰！（每台裝置代表 1 組；主持人也可以只觀戰控場）
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full mb-8" id="role-cards">
+                <!-- Role 1 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('migrant')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">🌍</div>
+                        <h3 class="text-base font-bold text-center mb-2">跨國移工 / 難民</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 1</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 語言隔閡（醫療/補給補血減半）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 2 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('manager')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">💻</div>
+                        <h3 class="text-base font-bold text-center mb-2">高壓科技業主管</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 0</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 慢性過勞（每回合自動扣 5 MWP）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 3 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('teenager')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">🎓</div>
+                        <h3 class="text-base font-bold text-center mb-2">當代青少年</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 1</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 數位脆弱（社群事件扣血加倍）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 4 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('elderly')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">👴</div>
+                        <h3 class="text-base font-bold text-center mb-2">獨居長者</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 1</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 社會孤立（汙名/孤獨陷阱額外 -5）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 5 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('caregiver')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">🩺</div>
+                        <h3 class="text-base font-bold text-center mb-2">家庭照顧者 / 醫護</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 1</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 慈悲疲乏（負面命運事件額外 -5）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 6 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('postpartum')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">🤱</div>
+                        <h3 class="text-base font-bold text-center mb-2">產後新手家長</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 1</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 育兒高壓（危機答錯額外 -5 MWP）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 7 -->
+                <div class="bg-white rounded-xl shadow-md p-4 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between" onclick="joinPlayer('rural')">
+                    <div>
+                        <div class="text-3xl mb-2 text-center">🏔️</div>
+                        <h3 class="text-base font-bold text-center mb-2">偏鄉原民青年</h3>
+                        <ul class="text-xs text-gray-600 space-y-1 mb-3">
+                            <li><strong>初始 MWP:</strong> 50 ｜ <strong>防護罩:</strong> 2</li>
+                            <li class="text-red-500"><strong>弱勢:</strong> 地理治療缺口（公衛補血減少 5）</li>
+                        </ul>
+                    </div>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-1.5 rounded-lg text-sm pointer-events-none">加入此角色</button>
+                </div>
+            </div>
+
+            <!-- Joined Players List -->
+            <div class="w-full max-w-3xl bg-white p-5 rounded-xl shadow-md border-t-4 border-indigo-500">
+                <h3 class="font-bold text-lg mb-3 text-center">已加入的組別（<span id="joined-count">0</span> / 7）</h3>
+                <div id="joined-players-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 min-h-[50px] text-gray-500">
+                    <div class="col-span-full text-center py-2">尚無組別加入</div>
+                </div>
+                <button id="btn-start-game" onclick="startMultiplayerGame()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition hidden disabled:opacity-50">
+                    開始對戰
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Main Game Board -->
+        <div id="screen-game" class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 hidden-screen fade-in">
+            
+            <!-- Left Panel: All 7 Teams Stats -->
+            <div class="lg:w-1/3 flex flex-col gap-3">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="font-bold text-gray-700 text-sm">各組心靈能量監測表</h2>
+                    <span class="text-xs text-gray-500">MWP ≤ 40 觸發危機挑戰</span>
+                </div>
+                <div id="players-stats-container" class="flex flex-col gap-2 overflow-y-auto max-h-[75vh] pr-1">
+                    <!-- Cards generated by JS -->
+                </div>
+            </div>
+
+            <!-- Right Panel: 7x7 Board (Dice Centered Inside) & Log -->
+            <div class="lg:w-2/3 flex flex-col gap-4">
+                
+                <!-- Board -->
+                <div class="bg-white p-3 md:p-4 rounded-2xl shadow-md">
+                    <div class="board-grid" id="board-container">
+                        <!-- 棋盤正中央：集中顯示回合與擲骰子面板 -->
+                        <div id="board-center" class="board-center">
+                            <div id="current-turn-indicator" class="bg-indigo-600 text-white absolute top-0 left-0 w-full py-1.5 px-2 text-center text-xs sm:text-sm font-bold shadow">
+                                現在輪到：P1
+                            </div>
+                            <div class="text-[11px] sm:text-xs font-semibold text-indigo-500 mt-5 mb-1 tracking-wide">
+                                🧠 全球心理衛生大富翁
+                            </div>
+                            <div id="dice-display" class="text-4xl sm:text-6xl my-2 sm:my-3 h-14 sm:h-20 flex items-center justify-center font-extrabold text-gray-800 select-none">
+                                🎲
+                            </div>
+                            <button id="btn-roll" onclick="rollDice()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 sm:py-3 px-5 sm:px-8 rounded-xl shadow-lg transform transition active:scale-95 text-sm sm:text-base w-full max-w-[220px]">
+                                擲骰子前進
+                            </button>
+                            <button id="btn-host-override" onclick="rollDice(true)" class="hidden mt-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1 px-3 rounded-lg text-[11px] shadow transition">
+                                👑 房主代為擲骰
+                            </button>
+                            <p class="text-[10px] sm:text-xs text-gray-500 mt-2 sm:mt-3 text-center leading-snug max-w-[240px]">
+                                任一組繞行 24 格回到終點即結束遊戲<br>
+                                結算依最終心靈能量 (MWP) 排名
+                            </p>
+                        </div>
+                        <!-- 24 Perimeter Tiles are generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="bg-gray-800 text-green-400 p-4 rounded-xl shadow-md h-36 overflow-y-auto font-mono text-xs sm:text-sm" id="event-log">
+                    <div>> 系統啟動，等待各組選擇角色...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Events / Crisis -->
+    <div id="modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center hidden-screen">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all scale-100">
+            <div id="modal-icon" class="text-5xl text-center mb-4">⚠️</div>
+            <h3 id="modal-title" class="text-2xl font-bold text-center mb-2">事件標題</h3>
+            <p id="modal-desc" class="text-gray-600 text-center mb-6 leading-relaxed whitespace-pre-line">事件描述敘述...</p>
+            
+            <!-- Dynamic Actions -->
+            <div id="modal-actions" class="flex flex-col gap-3">
+                <button onclick="closeModal()" class="bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 連線核心初始化（支援雲端房間 ＋ 自動切換 P2P 點對點跨裝置連線） ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let cloudReady = false;
+        let transportMode = null; // 'firestore' | 'p2p'
+        let roomUnsubscribe = null;
+
+        // P2P 連線狀態（當未偵測到雲端設定時自動啟用，手機／平板一樣可跨網連線）
+        let p2pPeer = null;
+        let p2pConns = [];
+        let p2pHostConn = null;
+
+        let onlineState = {
+            mode: 'local', // 'local' | 'online'
+            roomId: null,
+            isHost: false,
+            roomData: null
+        };
+
+        async function initCloud() {
+            if (cloudReady) return true;
+
+            // 1. 優先嘗試內建雲端同步環境
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = typeof __firebase_config === 'string'
+                        ? JSON.parse(__firebase_config)
+                        : __firebase_config;
+                    if (firebaseConfig && firebaseConfig.apiKey) {
+                        const app = initializeApp(firebaseConfig);
+                        db = getFirestore(app);
+                        auth = getAuth(app);
+
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            try {
+                                const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                                currentUser = cred.user;
+                            } catch (tokenErr) {
+                                console.warn('自訂權杖登入失敗，改用匿名登入:', tokenErr);
+                                const cred = await signInAnonymously(auth);
+                                currentUser = cred.user;
+                            }
+                        } else {
+                            const cred = await signInAnonymously(auth);
+                            currentUser = cred.user;
+                        }
+
+                        transportMode = 'firestore';
+                        cloudReady = true;
+                        const uidEl = document.getElementById('display-user-id');
+                        if (uidEl && currentUser) uidEl.innerText = currentUser.uid;
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.warn('雲端環境初始化失敗，將自動切換至 P2P 連線模式:', err);
+            }
+
+            // 2. 自動備援：啟用 WebRTC P2P 點對點即時連線（不需額外設定即可跨裝置對戰）
+            if (typeof window.Peer !== 'undefined') {
+                const randId = 'P2P-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+                currentUser = { uid: randId };
+                transportMode = 'p2p';
+                cloudReady = true;
+                const uidEl = document.getElementById('display-user-id');
+                if (uidEl) uidEl.innerText = `${currentUser.uid}（P2P 直連模式）`;
+                return true;
+            }
+
+            cloudReady = false;
+            return false;
+        }
+
+        const initCloudPromise = initCloud();
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function copyRoomCode() {
+            if (!onlineState.roomId) return;
+            const tempInput = document.createElement('input');
+            tempInput.value = onlineState.roomId;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast(`已複製房號：${onlineState.roomId}`);
+            } catch (e) {
+                showToast(`房號：${onlineState.roomId}`);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function switchMode(mode) {
+            if (onlineState.roomId && mode === 'local') {
+                leaveOnlineRoom();
+            }
+            onlineState.mode = mode;
+            const tabLocal = document.getElementById('tab-local');
+            const tabOnline = document.getElementById('tab-online');
+            const localCtrl = document.getElementById('local-controls');
+            const onlineCtrl = document.getElementById('online-controls');
+
+            if (mode === 'local') {
+                tabLocal.className = "px-5 py-2 rounded-lg text-sm font-bold transition bg-white text-indigo-700 shadow";
+                tabOnline.className = "px-5 py-2 rounded-lg text-sm font-bold transition text-gray-600 hover:text-gray-800";
+                localCtrl.classList.remove('hidden');
+                onlineCtrl.classList.add('hidden');
+                document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+                renderJoinedPlayers();
+            } else {
+                tabOnline.className = "px-5 py-2 rounded-lg text-sm font-bold transition bg-white text-emerald-700 shadow";
+                tabLocal.className = "px-5 py-2 rounded-lg text-sm font-bold transition text-gray-600 hover:text-gray-800";
+                localCtrl.classList.add('hidden');
+                onlineCtrl.classList.remove('hidden');
+                if (!onlineState.roomId) {
+                    document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+                }
+                renderJoinedPlayers();
+            }
+        }
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function getRoomDocRef(roomId) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+        }
+
+        function broadcastP2PState() {
+            if (transportMode !== 'p2p' || !onlineState.isHost || !onlineState.roomData) return;
+            p2pConns = p2pConns.filter(c => c && c.open);
+            p2pConns.forEach(c => {
+                try {
+                    c.send({ type: 'state', data: onlineState.roomData });
+                } catch (e) {
+                    console.warn('廣播給組員失敗:', e);
+                }
+            });
+        }
+
+        function handleP2PHostMessage(msg) {
+            if (!onlineState.isHost || !onlineState.roomData) return;
+            if (msg.type === 'join_request') {
+                const existing = onlineState.roomData.players || [];
+                if (existing.length >= 7 || existing.some(p => p.uid === msg.uid)) return;
+                const role = roles[msg.roleId];
+                if (!role) return;
+                const pNum = existing.length + 1;
+                const newPlayer = {
+                    id: pNum,
+                    uid: msg.uid,
+                    teamName: msg.teamName || '',
+                    roleId: msg.roleId,
+                    mwp: role.startMWP,
+                    maxMwp: 100,
+                    shield: role.startShield,
+                    pos: 0,
+                    skipTurn: false
+                };
+                onlineState.roomData.players = [...existing, newPlayer];
+                onlineState.roomData.logs = [
+                    ...(onlineState.roomData.logs || []),
+                    `> P${pNum} (${msg.teamName || role.name}) 已加入連線房間！`
+                ].slice(-40);
+                broadcastP2PState();
+                syncFromOnlineData(onlineState.roomData);
+            } else if (msg.type === 'patch' && msg.patch) {
+                Object.assign(onlineState.roomData, msg.patch);
+                broadcastP2PState();
+                syncFromOnlineData(onlineState.roomData);
+            }
+        }
+
+        function showOnlineLobbyUI(roomId) {
+            document.getElementById('online-entry').classList.add('hidden');
+            document.getElementById('online-lobby-info').classList.remove('hidden');
+            document.getElementById('lobby-room-code').innerText = roomId;
+            document.getElementById('header-room-code').innerText = roomId;
+            document.getElementById('room-badge').classList.remove('hidden');
+            if (currentUser) {
+                document.getElementById('display-user-id').innerText = transportMode === 'p2p'
+                    ? `${currentUser.uid}（P2P 直連）`
+                    : currentUser.uid;
+            }
+        }
+
+        async function createOnlineRoom() {
+            const btn = document.getElementById('btn-create-room');
+            btn.disabled = true;
+            btn.innerText = '連線建立中...';
+
+            await initCloudPromise;
+            if (!cloudReady || !currentUser) {
+                const ok = await initCloud();
+                if (!ok) {
+                    btn.disabled = false;
+                    btn.innerText = '＋ 建立連線房間';
+                    showToast('目前無法連線至網路服務，請確認網路連線後重試');
+                    return;
+                }
+            }
+
+            const roomId = generateRoomCode();
+            const initialData = {
+                roomId,
+                hostUid: currentUser.uid,
+                status: 'lobby',
+                players: [],
+                currentPlayerIndex: 0,
+                turn: 1,
+                diceDisplay: '🎲',
+                isResolving: false,
+                finisherId: null,
+                activeModal: null,
+                mildDeck: shuffleArray(mildCrisisBank.map((_, idx) => idx)),
+                moderateDeck: shuffleArray(moderateCrisisBank.map((_, idx) => idx)),
+                eventDeck: shuffleArray(events.map((_, idx) => idx)),
+                lastEventIndex: -1,
+                lastQuestionKey: null,
+                logs: [`> 房間 ${roomId} 已建立，等待各組輸入房號並選擇角色加入...`]
+            };
+
+            if (transportMode === 'firestore') {
+                try {
+                    await setDoc(getRoomDocRef(roomId), initialData);
+                    subscribeToRoom(roomId);
+                    showToast(`房間建立成功！房號：${roomId}`);
+                } catch (err) {
+                    console.error('建立房間失敗:', err);
+                    showToast('建立房間失敗，請稍後再試');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = '＋ 建立連線房間';
+                }
+                return;
+            }
+
+            // P2P 房主開房
+            try {
+                if (p2pPeer) { p2pPeer.destroy(); p2pPeer = null; }
+                p2pConns = [];
+                const peer = new window.Peer(`mhm-room-${roomId}`);
+                p2pPeer = peer;
+
+                peer.on('open', () => {
+                    onlineState.roomId = roomId;
+                    onlineState.isHost = true;
+                    onlineState.roomData = initialData;
+                    showOnlineLobbyUI(roomId);
+                    syncFromOnlineData(initialData);
+                    btn.disabled = false;
+                    btn.innerText = '＋ 建立連線房間';
+                    showToast(`房間建立成功！房號：${roomId}`);
+                });
+
+                peer.on('connection', (conn) => {
+                    p2pConns.push(conn);
+                    conn.on('open', () => {
+                        if (onlineState.roomData) {
+                            conn.send({ type: 'state', data: onlineState.roomData });
+                        }
+                    });
+                    conn.on('data', (msg) => handleP2PHostMessage(msg));
+                    conn.on('close', () => {
+                        p2pConns = p2pConns.filter(c => c !== conn);
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    console.error('P2P 開房錯誤:', err);
+                    btn.disabled = false;
+                    btn.innerText = '＋ 建立連線房間';
+                    showToast('建立連線房間失敗，請再試一次');
+                });
+            } catch (err) {
+                console.error('建立 P2P 房間失敗:', err);
+                btn.disabled = false;
+                btn.innerText = '＋ 建立連線房間';
+                showToast('建立房間失敗，請稍後再試');
+            }
+        }
+
+        async function joinOnlineRoom() {
+            const btn = document.getElementById('btn-join-room');
+            const input = document.getElementById('input-room-code');
+            const roomId = input.value.trim().toUpperCase();
+            if (roomId.length < 4) {
+                showToast('請輸入正確的 6 碼房號');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = '連線中...';
+
+            await initCloudPromise;
+            if (!cloudReady || !currentUser) {
+                const ok = await initCloud();
+                if (!ok) {
+                    btn.disabled = false;
+                    btn.innerText = '加入';
+                    showToast('目前無法連線至網路服務，請確認網路連線');
+                    return;
+                }
+            }
+
+            if (transportMode === 'firestore') {
+                try {
+                    const roomRef = getRoomDocRef(roomId);
+                    const snap = await getDoc(roomRef);
+                    if (!snap.exists()) {
+                        showToast(`找不到房號「${roomId}」，請確認是否輸入正確`);
+                        return;
+                    }
+                    subscribeToRoom(roomId);
+                    showToast(`已成功加入房間 ${roomId}！`);
+                } catch (err) {
+                    console.error('加入房間失敗:', err);
+                    showToast('加入房間失敗，請確認網路狀態');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = '加入';
+                }
+                return;
+            }
+
+            // P2P 組員加入房間
+            try {
+                if (p2pPeer) { p2pPeer.destroy(); p2pPeer = null; }
+                const peer = new window.Peer();
+                p2pPeer = peer;
+
+                let settled = false;
+                const timeout = setTimeout(() => {
+                    if (!settled) {
+                        settled = true;
+                        btn.disabled = false;
+                        btn.innerText = '加入';
+                        showToast(`找不到房號「${roomId}」或房主未開啟頁面`);
+                        if (p2pPeer) { p2pPeer.destroy(); p2pPeer = null; }
+                    }
+                }, 8000);
+
+                peer.on('open', () => {
+                    const conn = peer.connect(`mhm-room-${roomId}`, { reliable: true });
+                    p2pHostConn = conn;
+
+                    conn.on('open', () => {
+                        settled = true;
+                        clearTimeout(timeout);
+                        onlineState.roomId = roomId;
+                        onlineState.isHost = false;
+                        showOnlineLobbyUI(roomId);
+                        btn.disabled = false;
+                        btn.innerText = '加入';
+                        showToast(`已成功加入房間 ${roomId}！`);
+                    });
+
+                    conn.on('data', (msg) => {
+                        if (msg && msg.type === 'state' && msg.data) {
+                            onlineState.roomData = msg.data;
+                            syncFromOnlineData(msg.data);
+                        }
+                    });
+
+                    conn.on('close', () => {
+                        showToast('與房主的連線已中斷');
+                        leaveOnlineRoom();
+                    });
+
+                    conn.on('error', () => {
+                        if (!settled) {
+                            settled = true;
+                            clearTimeout(timeout);
+                            btn.disabled = false;
+                            btn.innerText = '加入';
+                            showToast(`無法連線至房號「${roomId}」`);
+                        }
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    console.error('P2P 加入錯誤:', err);
+                    if (!settled) {
+                        settled = true;
+                        clearTimeout(timeout);
+                        btn.disabled = false;
+                        btn.innerText = '加入';
+                        showToast(`找不到房號「${roomId}」，請確認房號是否正確`);
+                    }
+                });
+            } catch (err) {
+                console.error('加入 P2P 房間失敗:', err);
+                btn.disabled = false;
+                btn.innerText = '加入';
+                showToast('加入房間失敗，請確認網路狀態');
+            }
+        }
+
+        function subscribeToRoom(roomId) {
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+            onlineState.roomId = roomId;
+            const roomRef = getRoomDocRef(roomId);
+            showOnlineLobbyUI(roomId);
+
+            roomUnsubscribe = onSnapshot(roomRef, (snap) => {
+                if (!snap.exists()) {
+                    showToast('此房間已關閉');
+                    leaveOnlineRoom();
+                    return;
+                }
+                const data = snap.data();
+                onlineState.roomData = data;
+                onlineState.isHost = currentUser && data.hostUid === currentUser.uid;
+                syncFromOnlineData(data);
+            }, (err) => {
+                console.error('即時同步錯誤:', err);
+                showToast('房間同步連線中斷，請重新加入');
+            });
+        }
+
+        function leaveOnlineRoom() {
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+            if (p2pHostConn) {
+                try { p2pHostConn.close(); } catch (e) {}
+                p2pHostConn = null;
+            }
+            p2pConns.forEach(c => { try { c.close(); } catch (e) {} });
+            p2pConns = [];
+            if (p2pPeer) {
+                try { p2pPeer.destroy(); } catch (e) {}
+                p2pPeer = null;
+            }
+
+            onlineState.roomId = null;
+            onlineState.isHost = false;
+            onlineState.roomData = null;
+
+            document.getElementById('online-entry').classList.remove('hidden');
+            document.getElementById('online-lobby-info').classList.add('hidden');
+            document.getElementById('room-badge').classList.add('hidden');
+            document.getElementById('screen-game').classList.add('hidden-screen');
+            document.getElementById('turn-counter').classList.add('hidden');
+            document.getElementById('screen-role-select').classList.remove('hidden-screen');
+            closeModal();
+
+            state.players = [];
+            if (onlineState.mode === 'online') {
+                document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+            }
+            renderJoinedPlayers();
+        }
+
+        function syncFromOnlineData(data) {
+            // 還原玩家資料（補上 role 物件參考）
+            state.players = (data.players || []).map(p => ({
+                ...p,
+                role: roles[p.roleId]
+            }));
+            state.currentPlayerIndex = data.currentPlayerIndex || 0;
+            state.turn = data.turn || 1;
+            state.isResolving = !!data.isResolving;
+            state.isGameOver = data.status === 'finished';
+            state.mildDeck = data.mildDeck || [];
+            state.moderateDeck = data.moderateDeck || [];
+            state.eventDeck = data.eventDeck || [];
+            state.lastEventIndex = data.lastEventIndex ?? -1;
+            state.lastQuestionKey = data.lastQuestionKey ?? null;
+
+            const badge = document.getElementById('lobby-role-badge');
+            if (badge) {
+                badge.innerText = onlineState.isHost ? '👑 你是房主（主持人）' : '👥 連線參戰組員';
+            }
+
+            if (data.status === 'lobby') {
+                document.getElementById('screen-game').classList.add('hidden-screen');
+                document.getElementById('turn-counter').classList.add('hidden');
+                document.getElementById('screen-role-select').classList.remove('hidden-screen');
+                closeModal();
+
+                const alreadyJoined = state.players.some(p => p.uid === currentUser?.uid);
+                const pickHint = document.getElementById('online-pick-hint');
+                if (alreadyJoined) {
+                    const myTeam = state.players.find(p => p.uid === currentUser?.uid);
+                    pickHint.innerText = `✅ 你已加入為 P${myTeam.id}（${myTeam.teamName || myTeam.role.name}），等待房主按下開始對戰！`;
+                    document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+                } else if (state.players.length >= 7) {
+                    pickHint.innerText = '⚠️ 房間已滿 7 組，你可以作為觀戰者同步觀看賽況。';
+                    document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    pickHint.innerText = '👇 請點擊下方任一張公衛角色卡，加入本房間對戰！';
+                    document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+                }
+                renderJoinedPlayers();
+                return;
+            }
+
+            // 遊戲進行中或已結束
+            document.getElementById('screen-role-select').classList.add('hidden-screen');
+            document.getElementById('screen-game').classList.remove('hidden-screen');
+            document.getElementById('turn-counter').classList.remove('hidden');
+
+            if (document.querySelectorAll('#board-container .tile').length === 0) {
+                initBoard();
+            } else {
+                updatePlayerPos();
+            }
+
+            document.getElementById('dice-display').innerText = data.diceDisplay || '🎲';
+
+            // 同步事件日誌
+            const logEl = document.getElementById('event-log');
+            logEl.innerHTML = '';
+            (data.logs || []).forEach(line => {
+                const div = document.createElement('div');
+                div.innerText = line;
+                logEl.appendChild(div);
+            });
+            logEl.scrollTop = logEl.scrollHeight;
+
+            updateUI();
+
+            // 處理同步的結束畫面或彈窗
+            if (data.status === 'finished') {
+                const finisher = state.players.find(p => p.id === data.finisherId) || state.players[0];
+                if (finisher) renderEndGameModal(finisher);
+            } else if (data.activeModal) {
+                renderSyncedModal(data.activeModal);
+            } else {
+                closeModal();
+            }
+        }
+
+        function serializePlayers(players) {
+            return players.map(p => ({
+                id: p.id,
+                uid: p.uid || null,
+                teamName: p.teamName || '',
+                roleId: p.roleId,
+                mwp: p.mwp,
+                maxMwp: p.maxMwp,
+                shield: p.shield,
+                pos: p.pos,
+                skipTurn: !!p.skipTurn
+            }));
+        }
+
+        async function updateOnlineRoom(patch) {
+            if (!currentUser || !onlineState.roomId) return;
+
+            if (transportMode === 'p2p') {
+                if (onlineState.isHost && onlineState.roomData) {
+                    Object.assign(onlineState.roomData, patch);
+                    broadcastP2PState();
+                    syncFromOnlineData(onlineState.roomData);
+                } else if (p2pHostConn && p2pHostConn.open) {
+                    p2pHostConn.send({ type: 'patch', patch });
+                } else {
+                    showToast('尚未連線至房主，請重新加入房間');
+                }
+                return;
+            }
+
+            if (!db) return;
+            try {
+                await updateDoc(getRoomDocRef(onlineState.roomId), patch);
+            } catch (err) {
+                console.error('更新房間狀態失敗:', err);
+                showToast('同步動作失敗，請再試一次');
+            }
+        }
+
+        // --- 遊戲資料設定（7 種公衛心理角色） ---
+        const roles = {
+            migrant: {
+                name: "跨國移工 / 難民",
+                icon: "🌍",
+                desc: "弱勢：語言隔閡（醫療/補給補血減半）",
+                startMWP: 50,
+                startShield: 1
+            },
+            manager: {
+                name: "高壓科技業主管",
+                icon: "💻",
+                desc: "弱勢：慢性過勞（每回合基礎扣 5 MWP）",
+                startMWP: 50,
+                startShield: 0
+            },
+            teenager: {
+                name: "當代青少年",
+                icon: "🎓",
+                desc: "弱勢：數位脆弱（社群事件扣血倍增）",
+                startMWP: 50,
+                startShield: 1
+            },
+            elderly: {
+                name: "獨居長者",
+                icon: "👴",
+                desc: "弱勢：社會孤立（汙名/孤獨陷阱額外 -5）",
+                startMWP: 50,
+                startShield: 1
+            },
+            caregiver: {
+                name: "家庭照顧者 / 醫護",
+                icon: "🩺",
+                desc: "弱勢：慈悲疲乏（負面命運事件額外 -5）",
+                startMWP: 50,
+                startShield: 1
+            },
+            postpartum: {
+                name: "產後新手家長",
+                icon: "🤱",
+                desc: "弱勢：育兒高壓（危機答錯額外扣 5 MWP）",
+                startMWP: 50,
+                startShield: 1
+            },
+            rural: {
+                name: "偏鄉原民青年",
+                icon: "🏔️",
+                desc: "弱勢：地理治療缺口（公衛補血減少 5）",
+                startMWP: 50,
+                startShield: 2
+            }
+        };
+
+        // --- 24 格棋盤設定（7x7 外圍） ---
+        const tiles = [
+            { id: 0,  icon: "🏁", name: "起點/終點", type: "start",    color: "bg-amber-100 text-amber-900" },
+            { id: 1,  icon: "🌱", name: "心靈補給",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" },
+            { id: 2,  icon: "🌪️", name: "社會汙名",  type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 3,  icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 4,  icon: "🌐", name: "社區心衛",  type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 5,  icon: "🧘", name: "正念冥想",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" },
+            { id: 6,  icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 7,  icon: "🌪️", name: "孤獨陷阱",  type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 8,  icon: "🌐", name: "公衛資源",  type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 9,  icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 10, icon: "🎨", name: "社會處方",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" },
+            { id: 11, icon: "🌪️", name: "標籤排擠",  type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 12, icon: "📞", name: "1925專線",  type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 13, icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 14, icon: "🤝", name: "同儕支持",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" },
+            { id: 15, icon: "🌪️", name: "職場歧視",  type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 16, icon: "🌐", name: "遠距諮商",  type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 17, icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 18, icon: "🏥", name: "WHO介入站", type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 19, icon: "🌲", name: "森林療癒",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" },
+            { id: 20, icon: "🌪️", name: "資訊焦慮",  type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 21, icon: "❓", name: "命運機會",  type: "event",    color: "bg-purple-100 text-purple-800" },
+            { id: 22, icon: "🌪️", name: "汙名化",    type: "trap",     value: -20, color: "bg-red-100 text-red-800" },
+            { id: 23, icon: "😴", name: "睡眠修復",  type: "heal",     value: 15, color: "bg-green-100 text-green-800" }
+        ];
+
+        const events = [
+            { title: "全球通膨危機 (SDOH惡化)", desc: "受「健康社會決定因素(經濟)」影響，生活成本暴增，對未來感到絕望。", mwp: -15, type: "general" },
+            { title: "完美形象焦慮", desc: "社群網路瘋傳不切實際的標準，引發容貌焦慮。", mwp: -10, type: "social" },
+            { title: "WHO 去汙名化運動", desc: "推動全球倡議，改善社會風氣，減輕精神疾病汙名化。", mwp: 15, shield: 1, type: "general" },
+            { title: "職場/校園排擠", desc: "被貼上標籤，感受到強烈的孤立感與社會排除。", mwp: -15, type: "general" },
+            { title: "推動初段預防：社區培力", desc: "在地衛生所舉辦心理韌性(Resilience)講座，提升整體社區抗壓性。", mwp: 10, shield: 1, type: "general" },
+            { title: "醫療資源崩潰", desc: "面臨重大災難，基層心理衛生體系超載，出現嚴重的「治療缺口(Treatment Gap)」。", mwp: -20, type: "general" },
+            { title: "提升心理健康識能 (Mental Health Literacy)", desc: "社區推廣心理衛生教育，民眾更能覺察自身情緒並主動求助。", mwp: 15, type: "general" },
+            { title: "缺乏創傷知情 (Trauma-Informed)", desc: "媒體過度報導災難細節，導致具創傷經驗者引發「二度創傷 (Re-traumatization)」。", mwp: -15, type: "general" },
+            { title: "社會處方箋 (Social Prescribing)", desc: "基層醫療連結社區園藝、藝術與志工團體，有效緩解孤獨感與輕度憂鬱。", mwp: 15, type: "general" },
+            { title: "偏鄉遠距心理諮商上線", desc: "政府補助數位遠距心理衛生服務，大幅縮短城鄉「治療缺口」。", mwp: 10, shield: 1, type: "general" },
+            { title: "長照 2.0 喘息服務推廣", desc: "家庭照顧者獲得臨時替代人力，終於能好好休息並重拾生活步調。", mwp: 15, type: "general" },
+            { title: "網路酸民與假訊息風暴", desc: "社群平台充斥仇恨言論與網路霸凌，造成強烈心理壓力。", mwp: -15, type: "social" },
+            { title: "氣候變遷與生態焦慮 (Eco-anxiety)", desc: "極端氣候與熱浪頻傳，引發民眾對未來環境與生存的深層焦慮。", mwp: -10, type: "general" },
+            { title: "企業實施「身心調適假」", desc: "友善職場制度落地，員工能在過勞前安心請假進行心理健康維護。", mwp: 15, type: "general" },
+            { title: "校園同儕支持網絡成立", desc: "學校培訓學生心理健康大使，營造友善傾聽與互助的校園氛圍。", mwp: 15, type: "general" },
+            { title: "演算法同溫層與焦慮推播", desc: "短影音平台不斷推播災難與比較內容，導致睡眠剝奪與情緒低落。", mwp: -15, type: "social" },
+            { title: "社區長輩共餐與關懷據點", desc: "鄰里建立定期共餐與健康促進活動，有效打破獨居與社會孤立。", mwp: 15, type: "general" },
+            { title: "母語心理衛教手冊發行", desc: "衛生局推出多國語言心理健康指南，降低跨國移工的資訊與語言障礙。", mwp: 15, shield: 1, type: "general" },
+            { title: "經濟裁員潮與就業不安全感", desc: "產業變動引發失業恐慌，加重家庭經濟負擔與焦慮情緒。", mwp: -15, type: "general" },
+            { title: "15–45 歲青壯世代心理健康支持方案", desc: "政府補助免費心理諮商次數，大幅降低年輕族群求助的經濟門檻。", mwp: 15, type: "general" }
+        ];
+
+        // --- 危機搶答題庫（擴充至 25 題輕度 + 18 題中度 = 共 43 題不重複題庫） ---
+        const mildCrisisBank = [
+            {
+                desc: "你感到極度焦慮與耗竭。心理急救(PFA)中，協助個案連結社會資源的步驟稱為？",
+                options: [
+                    { text: "Look (觀察)", correct: false },
+                    { text: "Listen (傾聽)", correct: false },
+                    { text: "Link (連結)", correct: true }
+                ]
+            },
+            {
+                desc: "【公衛概念題】影響人類心理健康的最底層結構因素（如：收入、教育、居住環境、就業狀態），在公衛領域稱為什麼？",
+                options: [
+                    { text: "健康社會決定因素 (SDOH)", correct: true },
+                    { text: "醫療科技發展指標", correct: false },
+                    { text: "個體基因遺傳特徵", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】當代公衛強調「創傷知情照護 (Trauma-Informed Care)」。其重點是將問句從「你到底有什麼問題？」轉變為何種具同理心的視角？",
+                options: [
+                    { text: "「你為什麼不早點求救？」", correct: false },
+                    { text: "「你到底發生了什麼事？」", correct: true },
+                    { text: "「你怎麼連這個都做不好？」", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】在照護跨國移工或不同族群時，為了避免文化差異造成的醫療不平等，護理人員最需要具備何種能力？",
+                options: [
+                    { text: "高科技儀器操作能力", correct: false },
+                    { text: "強勢的醫療權威態度", correct: false },
+                    { text: "文化敏感度 (Cultural Competence)", correct: true }
+                ]
+            },
+            {
+                desc: "【公衛概念題】民眾能辨識心理困擾徵兆、了解預防方法並知道如何尋求專業協助的能力，稱為什麼？",
+                options: [
+                    { text: "心理健康識能 (Mental Health Literacy)", correct: true },
+                    { text: "醫療經濟效益評估", correct: false },
+                    { text: "生理適應反應", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】當一個人將社會對精神疾病的負面刻板印象內化，認為「生病是我自己的錯」而不敢求助，這種現象稱為？",
+                options: [
+                    { text: "自我汙名 (Self-Stigma)", correct: true },
+                    { text: "去機構化 (Deinstitutionalization)", correct: false },
+                    { text: "心理韌性 (Resilience)", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】面對逆境、創傷或重大壓力時，個體或社區能夠調適並恢復心理平衡的能力，稱為什麼？",
+                options: [
+                    { text: "心理韌性 (Resilience)", correct: true },
+                    { text: "情緒壓抑 (Suppression)", correct: false },
+                    { text: "治療缺口 (Treatment Gap)", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】世界衛生組織 (WHO) 在 ICD-11 中將「職業倦怠 / 過勞 (Burn-out)」定義為何種現象？",
+                options: [
+                    { text: "個人抗壓性不足的性格缺陷", correct: false },
+                    { text: "源於未能成功管理長期職場壓力的職業現象", correct: true },
+                    { text: "一種具有傳染性的急性神經疾病", correct: false }
+                ]
+            },
+            {
+                desc: "【PFA 實務題】陪伴剛經歷重大挫折而焦慮的親友時，下列哪種回應最符合心理急救的「傾聽 (Listen)」原則？",
+                options: [
+                    { text: "「別想太多，比你慘的人還很多！」", correct: false },
+                    { text: "「這沒什麼好難過的，振作一點。」", correct: false },
+                    { text: "「這陣子你一定承受很大壓力，我願意聽你說。」", correct: true }
+                ]
+            },
+            {
+                desc: "【青少年心理衛生】面對社群媒體引發的容貌焦慮與比較壓力，哪一項屬於有效的「初段預防」介入？",
+                options: [
+                    { text: "在校園推動媒體識讀與正向自我認同課程", correct: true },
+                    { text: "等到學生出現嚴重憂鬱症狀才安排住院", correct: false },
+                    { text: "全面禁止所有青少年與同儕互動", correct: false }
+                ]
+            },
+            {
+                desc: "【社區心理介入】醫護人員開立非藥物處方，轉介孤獨或輕度焦慮個案參加社區運動、藝文或志工團體，這種作法稱為？",
+                options: [
+                    { text: "社會處方箋 (Social Prescribing)", correct: true },
+                    { text: "強制隔離處分", correct: false },
+                    { text: "急性藥物鎮靜", correct: false }
+                ]
+            },
+            {
+                desc: "【助人者心理衛生】長期照護受苦個案的醫護人員或家庭照顧者，因過度投入同理而出現情緒耗竭與麻木，稱為什麼？",
+                options: [
+                    { text: "慈悲疲乏 (Compassion Fatigue)", correct: true },
+                    { text: "群體免疫 (Herd Immunity)", correct: false },
+                    { text: "正向心理學 (Positive Psychology)", correct: false }
+                ]
+            },
+            {
+                desc: "【婦幼心理衛生】關於「產後憂鬱症 (Postpartum Depression)」，下列哪項認知最正確？",
+                options: [
+                    { text: "只會發生在媽媽身上，爸爸不會有產後憂鬱", correct: false },
+                    { text: "與荷爾蒙變化、睡眠剝奪及育兒壓力有關，需要早期篩檢與支持", correct: true },
+                    { text: "只要多忍耐就會自己好，不需要告訴醫療人員", correct: false }
+                ]
+            },
+            {
+                desc: "【環境與心理衛生】因目睹氣候變遷、極端天氣與環境破壞而產生的長期擔憂與無力感，稱為什麼？",
+                options: [
+                    { text: "生態焦慮 (Eco-anxiety)", correct: true },
+                    { text: "醫療順從性 (Compliance)", correct: false },
+                    { text: "去機構化 (Deinstitutionalization)", correct: false }
+                ]
+            },
+            {
+                desc: "【健康促進】關於「睡眠衛生 (Sleep Hygiene)」對心理健康的影響，下列何者正確？",
+                options: [
+                    { text: "長期失眠與焦慮、憂鬱呈現雙向關聯，規律作息有助穩定情緒", correct: true },
+                    { text: "睡前滑手機看社群動態最能幫助大腦放鬆入睡", correct: false },
+                    { text: "週末報復性熬夜完全不會影響隔週的情緒調節", correct: false }
+                ]
+            },
+            {
+                desc: "【心理急救 PFA】在 PFA 三大行動原則「Look, Listen, Link」中，第一步「Look（觀察）」最優先需要確認的是什麼？",
+                options: [
+                    { text: "確認現場環境安全、找出有立即基本需求或嚴重情緒困擾者", correct: true },
+                    { text: "立刻替當事人做精神科診斷並開立處方藥", correct: false },
+                    { text: "要求當事人立刻詳細重述創傷發生的每個畫面", correct: false }
+                ]
+            },
+            {
+                desc: "【社會決定因素】孤獨感與長期社會孤立 (Social Isolation) 已被 WHO 列為全球公共衛生議題，其對健康的長期影響最接近下列何者？",
+                options: [
+                    { text: "不僅增加憂鬱與失智風險，也會顯著提高心血管疾病與早逝風險", correct: true },
+                    { text: "只會影響心情，對身體健康完全沒有影響", correct: false },
+                    { text: "只會發生在退休後的長者身上，年輕人不會受到影響", correct: false }
+                ]
+            },
+            {
+                desc: "【青少年心理衛生】台灣衛福部推動「青壯世代心理健康支持方案」，提供 15 至 45 歲民眾每人幾次免費心理諮商補助？",
+                options: [
+                    { text: "3 次免費心理諮商", correct: true },
+                    { text: "僅限 1 次免費諮商", correct: false },
+                    { text: "必須先住院才能申請補助", correct: false }
+                ]
+            },
+            {
+                desc: "【情緒辨識】下列哪一項最符合「情緒耗竭 (Emotional Exhaustion)」的早期警訊？",
+                options: [
+                    { text: "長期感到身心掏空、對原本熱愛的事物失去動力且易怒", correct: true },
+                    { text: "偶爾運動後覺得肌肉痠痛想睡覺", correct: false },
+                    { text: "考試前一天稍微緊張但考完即放鬆", correct: false }
+                ]
+            },
+            {
+                desc: "【去汙名化語言】在公共衛生倡議中，推廣「以人為本的語言 (Person-First Language)」，下列哪種說法最恰當？",
+                options: [
+                    { text: "「罹患思覺失調症的個案 / 康復者」", correct: true },
+                    { text: "「不定時炸彈 / 瘋子」", correct: false },
+                    { text: "「精神病患都具有高度攻擊性」", correct: false }
+                ]
+            },
+            {
+                desc: "【職場心理衛生】企業導入「員工協助方案 (EAP, Employee Assistance Program)」的主要目的為何？",
+                options: [
+                    { text: "提供保密的心理諮商、法律與財務諮詢，協助員工解決壓力源", correct: true },
+                    { text: "用來監控員工私人社群貼文並作為考績扣分依據", correct: false },
+                    { text: "強迫所有員工加班以提升公司產值", correct: false }
+                ]
+            },
+            {
+                desc: "【正念減壓】正念減壓 (MBSR) 常被運用於社區初段心理預防，其核心練習態度為何？",
+                options: [
+                    { text: "不帶批判地覺察當下的呼吸、身體感受與情緒起伏", correct: true },
+                    { text: "強迫自己大腦完全一片空白，不能出現任何負面念頭", correct: false },
+                    { text: "壓抑所有悲傷與憤怒，假裝自己永遠很快樂", correct: false }
+                ]
+            },
+            {
+                desc: "【物質濫用預防】部分民眾在面臨長期壓力時，習慣以「借酒澆愁」助眠，從公衛心理角度來看會有何風險？",
+                options: [
+                    { text: "酒精屬於中樞神經抑制劑，反而破壞睡眠結構並加重憂鬱與依賴風險", correct: true },
+                    { text: "每天喝烈酒是最安全有效的抗憂鬱療法", correct: false },
+                    { text: "酒精能永久根治焦慮症且不會產生耐受性", correct: false }
+                ]
+            },
+            {
+                desc: "【數位健康】面對社群媒體造成的「錯失恐懼症 (FOMO)」，哪種自我照顧策略最具保護力？",
+                options: [
+                    { text: "設定每日螢幕使用上限，增加線下真實人際互動與戶外活動", correct: true },
+                    { text: "每五分鐘刷新一次動態，確保自己沒有漏掉任何貼文", correct: false },
+                    { text: "同時追蹤數百個完美濾鏡帳號來激勵自己", correct: false }
+                ]
+            },
+            {
+                desc: "【家庭心理衛生】關於「童年逆境經驗 (ACEs, Adverse Childhood Experiences)」的研究顯示，兒時經歷長期忽視或創傷會帶來何種影響？",
+                options: [
+                    { text: "會顯著增加成年後罹患憂鬱症、物質濫用與慢性病的風險，需要早期介入保護", correct: true },
+                    { text: "小時候的事長大就會忘記，不會對成年心理健康造成影響", correct: false },
+                    { text: "只有生理受傷才算創傷，語言暴力不算逆境經驗", correct: false }
+                ]
+            }
+        ];
+
+        const moderateCrisisBank = [
+            {
+                desc: "你感到嚴重的無力與憂鬱傾向。請問：在台灣，當需要 24 小時免費心理諮詢時，應撥打哪支專線？",
+                options: [
+                    { text: "1922 (防疫專線)", correct: false },
+                    { text: "119 (救護專線)", correct: false },
+                    { text: "1925 (依舊愛我安心專線)", correct: true }
+                ]
+            },
+            {
+                desc: "【公衛概念題】當社區發生重大災難，公衛護理師提供受災民眾緊急心理支持與篩檢，這屬於三段預防中的哪一段？",
+                options: [
+                    { text: "初段預防 (促進健康)", correct: false },
+                    { text: "次段預防 (早期發現與介入)", correct: true },
+                    { text: "末段預防 (復健與避免失能)", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】近年精神醫療強調「去機構化 (Deinstitutionalization)」，其核心理念為何？",
+                options: [
+                    { text: "將精神病人永久隔離於大型醫院", correct: false },
+                    { text: "讓個案回歸社會，由「社區心理衛生中心」提供支持", correct: true },
+                    { text: "完全取消精神科門診，全靠家屬照顧", correct: false }
+                ]
+            },
+            {
+                desc: "【自殺防治守門人】當發現身邊的人出現嚴重絕望或輕生念頭時，自殺防治守門人的三步驟口訣為何？",
+                options: [
+                    { text: "一問、二應、三轉介", correct: true },
+                    { text: "一罵、二勸、三保密", correct: false },
+                    { text: "一聽、二等、三忽略", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】需要心理健康照護的人口中，實際上未能獲得適當治療的比例，在全球衛生領域稱為什麼？",
+                options: [
+                    { text: "治療缺口 (Treatment Gap)", correct: true },
+                    { text: "群體免疫 (Herd Immunity)", correct: false },
+                    { text: "健康促進 (Health Promotion)", correct: false }
+                ]
+            },
+            {
+                desc: "【公衛概念題】協助慢性精神疾病康復者進行職能訓練、重返社區生活，並預防功能退化，屬於三段預防中的哪一段？",
+                options: [
+                    { text: "初段預防 (健康促進)", correct: false },
+                    { text: "次段預防 (早期篩檢)", correct: false },
+                    { text: "末段預防 (復健與限制殘障)", correct: true }
+                ]
+            },
+            {
+                desc: "【復元模式】現代精神衛生照護強調「復元 (Recovery)」，下列何者最符合其核心精神？",
+                options: [
+                    { text: "必須完全停藥才算復元", correct: false },
+                    { text: "即使帶著症狀，個案仍能有意義地生活並擁有自主權", correct: true },
+                    { text: "完全由醫療人員替個案決定所有生活大小事", correct: false }
+                ]
+            },
+            {
+                desc: "【社區照護資源】在台灣各縣市設立、負責整合在地心理諮商、個案關懷訪視與衛教宣導的基層單位為何？",
+                options: [
+                    { text: "社區心理衛生中心", correct: true },
+                    { text: "戶政事務所", correct: false },
+                    { text: "消防局救災中心", correct: false }
+                ]
+            },
+            {
+                desc: "【全球心理衛生】世界衛生組織推行「mhGAP（心理衛生行動差距計畫）」，最主要的策略為何？",
+                options: [
+                    { text: "培訓非專科的基層醫療人員，在資源有限地區提供心理照護", correct: true },
+                    { text: "只在已開發國家興建大型精神專科醫院", correct: false },
+                    { text: "全面以人工智慧取代所有人類護理師", correct: false }
+                ]
+            },
+            {
+                desc: "【高齡心理衛生】獨居長者罹患憂鬱症時，常容易被忽略，因為他們較常表現出何種症狀？",
+                options: [
+                    { text: "反覆抱怨不明原因的頭痛、胃痛、疲倦等「身體化症狀」", correct: true },
+                    { text: "主動在社群媒體發文求助", correct: false },
+                    { text: "食慾大增且精力充沛", correct: false }
+                ]
+            },
+            {
+                desc: "【長照與家庭支持】當家庭照顧者因長期照護失能家人而瀕臨崩潰時，在台灣可撥打哪支長照專線申請「喘息服務」？",
+                options: [
+                    { text: "1966 長照服務專線", correct: true },
+                    { text: "165 反詐騙專線", correct: false },
+                    { text: "117 報時台", correct: false }
+                ]
+            },
+            {
+                desc: "【偏鄉健康平權】為了解決偏鄉地區精神科醫師與心理師嚴重不足的「地理治療缺口」，公衛體系最常導入何種服務？",
+                options: [
+                    { text: "遠距心理諮商 (Tele-mental Health) 與巡迴醫療", correct: true },
+                    { text: "要求偏鄉居民每週自費搭車到都會區就醫", correct: false },
+                    { text: "取消偏鄉衛生所的心理衛教業務", correct: false }
+                ]
+            },
+            {
+                desc: "【自殺防治迷思】關於自殺防治的正確觀念，下列敘述何者正確？",
+                options: [
+                    { text: "主動且具同理心地詢問「你最近是不是有想不開的念頭？」，並不會誘導對方自殺，反而能讓對方感到被理解", correct: true },
+                    { text: "千萬不要主動談論自殺話題，否則會害對方真的去做", correct: false },
+                    { text: "會把想死掛在嘴邊的人只是想討拍，絕對不會真的行動", correct: false }
+                ]
+            },
+            {
+                desc: "【跨文化求助】跨國移工在台遭遇嚴重職場壓力、心理困擾或權益受損時，除了 1925 外，還可撥打哪支提供多國語言服務的免費專線？",
+                options: [
+                    { text: "1955 勞工諮詢申訴專線", correct: true },
+                    { text: "104 查號台", correct: false },
+                    { text: "168 路況報導專線", correct: false }
+                ]
+            },
+            {
+                desc: "【危機評估工具】在台灣社區與基層醫療中，最常使用哪一份「心情溫度計」量表來快速篩檢焦慮、憂鬱與自殺風險？",
+                options: [
+                    { text: "簡式健康量表 (BSRS-5)", correct: true },
+                    { text: "格拉斯哥昏迷指數 (GCS)", correct: false },
+                    { text: "身體質量指數 (BMI)", correct: false }
+                ]
+            },
+            {
+                desc: "【社區心理資源】除了醫院精神科，當民眾出現家暴、性侵害或兒少受虐等心理與人身安全危機時，可撥打哪支 24 小時保護專線？",
+                options: [
+                    { text: "113 保護專線", correct: true },
+                    { text: "1999 市政服務專線", correct: false },
+                    { text: "123 台電客服專線", correct: false }
+                ]
+            },
+            {
+                desc: "【創傷壓力反應】經歷重大災難或暴力事件後，若反覆出現創傷畫面閃回 (Flashback)、過度警覺與逃避行為且持續超過一個月，最可能為何種狀況？",
+                options: [
+                    { text: "創傷後壓力症候群 (PTSD)，應及早尋求專業心理治療", correct: true },
+                    { text: "單純的記憶力衰退，不需要任何處理", correct: false },
+                    { text: "只是個性太膽小，逼迫自己重回現場就能治好", correct: false }
+                ]
+            },
+            {
+                desc: "【精神衛生法規】台灣新修正《精神衛生法》強調「社區支持與人權保障」，若要對嚴重病人進行強制住院，現制改由哪個單位審查裁定？",
+                options: [
+                    { text: "改採「法官保留原則」，由法院（參審法庭）裁定", correct: true },
+                    { text: "由鄰居投票決定即可強制住院", correct: false },
+                    { text: "只要雇主簽名就能強制住院", correct: false }
+                ]
+            }
+        ];
+
+        // --- 狀態管理 ---
+        let state = {
+            players: [],
+            currentPlayerIndex: 0,
+            turn: 1,
+            isResolving: false,
+            isGameOver: false,
+            mildDeck: [],
+            moderateDeck: [],
+            eventDeck: [],
+            lastEventIndex: -1,
+            lastQuestionKey: null
+        };
+
+        // 陣列洗牌 (Fisher-Yates)
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // 初始化所有牌庫（不重複抽題與不重複事件）
+        function initDecks() {
+            state.mildDeck = shuffleArray(mildCrisisBank.map((_, idx) => idx));
+            state.moderateDeck = shuffleArray(moderateCrisisBank.map((_, idx) => idx));
+            state.eventDeck = shuffleArray(events.map((_, idx) => idx));
+            state.lastEventIndex = -1;
+            state.lastQuestionKey = null;
+        }
+
+        // 不重複抽取命運事件（所有事件輪完一輪前絕不重複）
+        function drawEvent() {
+            if (state.eventDeck.length === 0) {
+                let newDeck = shuffleArray(events.map((_, idx) => idx));
+                // 避免洗牌後第一張跟剛抽完的最後一張相同
+                if (newDeck.length > 1 && newDeck[newDeck.length - 1] === state.lastEventIndex) {
+                    [newDeck[0], newDeck[newDeck.length - 1]] = [newDeck[newDeck.length - 1], newDeck[0]];
+                }
+                state.eventDeck = newDeck;
+            }
+            const evIdx = state.eventDeck.pop();
+            state.lastEventIndex = evIdx;
+            return events[evIdx];
+        }
+
+        // 不重複抽題（優先抽對應難度未出過的題目；若該難度抽完，先借用另一難度未出過的題目，確保全場 43 題不重複）
+        function drawQuestion(isModerate) {
+            let useModerate = isModerate;
+            let primaryDeck = useModerate ? state.moderateDeck : state.mildDeck;
+            let fallbackDeck = useModerate ? state.mildDeck : state.moderateDeck;
+
+            // 若對應難度抽完，但另一難度還有未出過的題目，則先借用
+            if (primaryDeck.length === 0 && fallbackDeck.length > 0) {
+                useModerate = !useModerate;
+                primaryDeck = fallbackDeck;
+            }
+
+            // 若全部 43 題都已出過一輪，才重新洗牌
+            if (state.mildDeck.length === 0 && state.moderateDeck.length === 0) {
+                state.mildDeck = shuffleArray(mildCrisisBank.map((_, idx) => idx));
+                state.moderateDeck = shuffleArray(moderateCrisisBank.map((_, idx) => idx));
+                useModerate = isModerate;
+                primaryDeck = useModerate ? state.moderateDeck : state.mildDeck;
+            }
+
+            const bank = useModerate ? moderateCrisisBank : mildCrisisBank;
+            const prefix = useModerate ? 'mod' : 'mild';
+
+            // 避免剛洗完牌的第一題跟上一題相同
+            if (primaryDeck.length > 1 && `${prefix}-${primaryDeck[primaryDeck.length - 1]}` === state.lastQuestionKey) {
+                [primaryDeck[0], primaryDeck[primaryDeck.length - 1]] = [primaryDeck[primaryDeck.length - 1], primaryDeck[0]];
+            }
+
+            const qIdx = primaryDeck.pop();
+            state.lastQuestionKey = `${prefix}-${qIdx}`;
+            return bank[qIdx];
+        }
+
+        async function joinPlayer(roleId) {
+            if (state.players.length >= 7) return;
+
+            if (onlineState.mode === 'online') {
+                if (!onlineState.roomId || !currentUser) {
+                    showToast('請先建立或加入連線房間');
+                    return;
+                }
+                if (state.players.some(p => p.uid === currentUser.uid)) {
+                    showToast('你已經加入過此房間了');
+                    return;
+                }
+                const customName = document.getElementById('input-team-name').value.trim();
+
+                if (transportMode === 'p2p' && !onlineState.isHost) {
+                    if (p2pHostConn && p2pHostConn.open) {
+                        p2pHostConn.send({
+                            type: 'join_request',
+                            roleId,
+                            teamName: customName,
+                            uid: currentUser.uid
+                        });
+                    } else {
+                        showToast('與房主的連線尚未就緒，請稍後再試');
+                    }
+                    return;
+                }
+
+                const pNum = state.players.length + 1;
+                const role = roles[roleId];
+                const newPlayer = {
+                    id: pNum,
+                    uid: currentUser.uid,
+                    teamName: customName,
+                    roleId: roleId,
+                    mwp: role.startMWP,
+                    maxMwp: 100,
+                    shield: role.startShield,
+                    pos: 0,
+                    skipTurn: false
+                };
+                const updatedPlayers = [...serializePlayers(state.players), newPlayer];
+                const nextLogs = [...(onlineState.roomData?.logs || []), `> P${pNum} (${customName || role.name}) 已加入連線房間！`];
+                await updateOnlineRoom({ players: updatedPlayers, logs: nextLogs });
+                return;
+            }
+
+            let pNum = state.players.length + 1;
+            let role = roles[roleId];
+            
+            state.players.push({
+                id: pNum,
+                uid: null,
+                teamName: '',
+                roleId: roleId,
+                role: role,
+                mwp: role.startMWP,
+                maxMwp: 100,
+                shield: role.startShield,
+                pos: 0,
+                skipTurn: false
+            });
+
+            renderJoinedPlayers();
+        }
+
+        function quickFillSevenTeams() {
+            state.players = [];
+            document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+            Object.keys(roles).forEach(roleId => joinPlayer(roleId));
+        }
+
+        function clearPlayers() {
+            state.players = [];
+            document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+            renderJoinedPlayers();
+        }
+
+        function renderJoinedPlayers() {
+            const list = document.getElementById('joined-players-list');
+            const startBtn = document.getElementById('btn-start-game');
+            const countEl = document.getElementById('joined-count');
+            
+            if (countEl) countEl.innerText = state.players.length;
+            list.innerHTML = '';
+            
+            if (state.players.length === 0) {
+                list.innerHTML = '<div class="col-span-full text-center py-2">尚無組別加入</div>';
+                startBtn.classList.add('hidden');
+                return;
+            }
+
+            state.players.forEach(p => {
+                const item = document.createElement('div');
+                const isMe = onlineState.mode === 'online' && currentUser && p.uid === currentUser.uid;
+                item.className = `flex justify-between items-center p-2.5 rounded-lg border w-full ${isMe ? 'bg-indigo-50 border-indigo-300' : 'bg-gray-50 border-gray-200'}`;
+                const displayName = p.teamName ? `${p.teamName}・${p.role.name}` : p.role.name;
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold token-${p.id}">P${p.id}</span>
+                        <span class="text-xl shrink-0">${p.role.icon}</span>
+                        <span class="font-bold text-sm text-gray-800 truncate">${displayName}</span>
+                        ${isMe ? '<span class="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded shrink-0">你</span>' : ''}
+                    </div>
+                    <span class="text-xs text-gray-500 shrink-0">MWP ${p.mwp}</span>
+                `;
+                list.appendChild(item);
+            });
+
+            if (onlineState.mode === 'online') {
+                if (state.players.length >= 1 && onlineState.isHost) {
+                    startBtn.classList.remove('hidden');
+                    startBtn.innerText = `🚀 房主開始連線對戰（目前 ${state.players.length} 組）`;
+                } else {
+                    startBtn.classList.add('hidden');
+                }
+                return;
+            }
+
+            if (state.players.length >= 1) {
+                startBtn.classList.remove('hidden');
+                startBtn.innerText = '開始對戰';
+            }
+            if (state.players.length >= 7) {
+                document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function initBoard() {
+            const container = document.getElementById('board-container');
+            // 僅移除先前產生的格子，保留中央擲骰區 (#board-center)
+            container.querySelectorAll('.tile').forEach(el => el.remove());
+
+            tiles.forEach((tile) => {
+                const div = document.createElement('div');
+                div.className = `tile tile-${tile.id} ${tile.color} border border-gray-200`;
+                div.id = `tile-${tile.id}`;
+                div.innerHTML = `
+                    <div class="text-base sm:text-xl leading-none">${tile.icon}</div>
+                    <div class="text-[9px] sm:text-[11px] font-bold leading-tight mt-0.5 px-0.5">${tile.name}</div>
+                    <div id="player-on-${tile.id}" class="tokens-layer"></div>
+                `;
+                container.appendChild(div);
+            });
+            updatePlayerPos();
+        }
+
+        async function startMultiplayerGame() {
+            if (state.players.length === 0) return;
+
+            if (onlineState.mode === 'online') {
+                if (!onlineState.isHost) {
+                    showToast('只有房主可以按下開始對戰');
+                    return;
+                }
+                initDecks();
+                await updateOnlineRoom({
+                    status: 'playing',
+                    currentPlayerIndex: 0,
+                    turn: 1,
+                    isResolving: false,
+                    diceDisplay: '🎲',
+                    finisherId: null,
+                    activeModal: null,
+                    mildDeck: state.mildDeck,
+                    moderateDeck: state.moderateDeck,
+                    eventDeck: state.eventDeck,
+                    lastEventIndex: -1,
+                    lastQuestionKey: null,
+                    logs: [`> 連線對戰開始！共 ${state.players.length} 組參戰，率先繞行 24 格回到終點即結束遊戲！`]
+                });
+                return;
+            }
+            
+            state.currentPlayerIndex = 0;
+            state.turn = 1;
+            state.isResolving = false;
+            state.isGameOver = false;
+            initDecks();
+
+            document.getElementById('dice-display').innerText = '🎲';
+            document.getElementById('btn-roll').disabled = false;
+            document.getElementById('btn-roll').classList.remove('opacity-50');
+
+            // UI 隱藏/顯示
+            document.getElementById('screen-role-select').classList.add('hidden-screen');
+            document.getElementById('screen-game').classList.remove('hidden-screen');
+            document.getElementById('turn-counter').classList.remove('hidden');
+
+            initBoard();
+            updateUI();
+            log(`> 遊戲開始！共 ${state.players.length} 名玩家參戰。率先繞行一圈回到終點即結束遊戲！`);
+        }
+
+        function updateUI() {
+            document.getElementById('round-num').innerText = state.turn;
+            
+            const container = document.getElementById('players-stats-container');
+            container.innerHTML = '';
+
+            state.players.forEach((p, index) => {
+                // MWP 邊界限制
+                if (p.mwp > p.maxMwp) p.mwp = p.maxMwp;
+                if (p.mwp < 0) p.mwp = 0;
+
+                const isCurrent = index === state.currentPlayerIndex;
+                const isMe = onlineState.mode === 'online' && currentUser && p.uid === currentUser.uid;
+                const borderClass = isCurrent ? "border-l-8 border-indigo-600 shadow-md ring-2 ring-indigo-200" : "border-l-4 border-gray-300 opacity-80 shadow-sm";
+                
+                let barColor = "bg-indigo-500";
+                let textColor = "text-indigo-600";
+                if (p.mwp <= 20) { barColor = "bg-red-600"; textColor = "text-red-600"; }
+                else if (p.mwp <= 40) { barColor = "bg-yellow-500"; textColor = "text-yellow-600"; }
+
+                const displayName = p.teamName ? `${p.teamName}・${p.role.name}` : p.role.name;
+                const card = document.createElement('div');
+                card.className = `bg-white p-3 rounded-xl transition-all duration-300 relative ${borderClass}`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold token-${p.id}">P${p.id}</span>
+                            <span class="text-lg shrink-0">${p.role.icon}</span>
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-xs sm:text-sm leading-tight truncate">
+                                    ${displayName}
+                                    ${isMe ? '<span class="ml-1 text-[10px] bg-indigo-100 text-indigo-700 px-1 rounded">本組</span>' : ''}
+                                </h3>
+                                <div class="text-[11px] text-gray-500 truncate" title="${p.role.desc}">${p.role.desc}</div>
+                            </div>
+                        </div>
+                        <div class="shrink-0 flex items-center gap-1.5">
+                            <span class="bg-blue-50 text-blue-700 text-xs font-bold px-1.5 py-0.5 rounded">🛡️${p.shield}</span>
+                            <span class="font-extrabold text-sm ${textColor}">${p.mwp}</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        <div class="${barColor} h-1.5 rounded-full transition-all duration-500" style="width: ${(p.mwp / p.maxMwp) * 100}%"></div>
+                    </div>
+                    ${p.skipTurn ? `<div class="absolute inset-0 bg-white bg-opacity-85 flex items-center justify-center font-bold text-red-600 text-xs rounded-xl z-10 backdrop-blur-sm">強制休養中</div>` : ''}
+                `;
+                container.appendChild(card);
+            });
+
+            // Update Current Turn Indicator (inside board center)
+            const currentP = state.players[state.currentPlayerIndex];
+            if (!currentP) return;
+            const currentLabel = currentP.teamName ? `${currentP.teamName} (${currentP.role.name})` : currentP.role.name;
+            const indicator = document.getElementById('current-turn-indicator');
+            indicator.innerText = `現在輪到：P${currentP.id} ${currentLabel}`;
+            indicator.className = `absolute top-0 left-0 w-full py-1.5 px-2 text-center text-xs sm:text-sm font-bold shadow text-white token-${currentP.id}`;
+
+            const rollBtn = document.getElementById('btn-roll');
+            const hostBtn = document.getElementById('btn-host-override');
+
+            if (onlineState.mode === 'online') {
+                const isMyTurn = currentUser && currentP.uid === currentUser.uid;
+                if (state.isGameOver) {
+                    rollBtn.disabled = true;
+                    rollBtn.classList.add('opacity-50');
+                    rollBtn.innerText = '🏁 遊戲已結束';
+                    hostBtn.classList.add('hidden');
+                } else if (state.isResolving) {
+                    rollBtn.disabled = true;
+                    rollBtn.classList.add('opacity-50');
+                    rollBtn.innerText = `🎲 P${currentP.id} 行動中...`;
+                    hostBtn.classList.add('hidden');
+                } else if (isMyTurn) {
+                    rollBtn.disabled = false;
+                    rollBtn.classList.remove('opacity-50');
+                    rollBtn.innerText = `🎲 輪到你！P${currentP.id} 擲骰子`;
+                    hostBtn.classList.add('hidden');
+                } else {
+                    rollBtn.disabled = true;
+                    rollBtn.classList.add('opacity-50');
+                    rollBtn.innerText = `⏳ 等待 P${currentP.id} 擲骰子`;
+                    if (onlineState.isHost) {
+                        hostBtn.classList.remove('hidden');
+                    } else {
+                        hostBtn.classList.add('hidden');
+                    }
+                }
+            } else {
+                hostBtn.classList.add('hidden');
+                rollBtn.innerText = `🎲 P${currentP.id} 擲骰子`;
+            }
+        }
+
+        function updatePlayerPos() {
+            // 移除舊的
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+            // 加入新的
+            state.players.forEach(p => {
+                const targetCell = document.getElementById(`player-on-${p.pos}`);
+                if (targetCell) {
+                    const token = document.createElement('div');
+                    token.className = `player-token token-${p.id}`;
+                    token.innerText = `P${p.id}`;
+                    targetCell.appendChild(token);
+                }
+            });
+        }
+
+        function log(msg) {
+            const el = document.getElementById('event-log');
+            const p = document.createElement('div');
+            p.innerText = msg;
+            el.appendChild(p);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // --- 核心遊戲邏輯 ---
+
+        async function rollDice(isHostOverride = false) {
+            if (state.isResolving || state.isGameOver) return;
+            const p = state.players[state.currentPlayerIndex];
+
+            if (onlineState.mode === 'online') {
+                const isMyTurn = currentUser && p.uid === currentUser.uid;
+                if (!isMyTurn && !(isHostOverride && onlineState.isHost)) {
+                    showToast(`現在輪到 P${p.id} 行動喔！`);
+                    return;
+                }
+                await rollDiceOnline(p);
+                return;
+            }
+
+            if (p.mwp <= 0) {
+                showModal(`🔴 P${p.id} 精神崩潰`, "心靈能量歸零，陷入嚴重危機。必須重新尋求社區強烈介入。", [
+                    { text: "接受強制休養 (跳過下回合並恢復 30 MWP)", action: () => { p.mwp = 30; p.skipTurn = true; closeModal(); finishTurn(true); } }
+                ]);
+                return;
+            }
+
+            state.isResolving = true;
+            document.getElementById('btn-roll').disabled = true;
+            document.getElementById('btn-roll').classList.add('opacity-50');
+            
+            let roll = 0;
+            let diceAnim = setInterval(() => {
+                roll = Math.floor(Math.random() * 6) + 1;
+                document.getElementById('dice-display').innerText = `🎲 ${roll}`;
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(diceAnim);
+                log(`> P${p.id} 擲出了 ${roll}`);
+                
+                // 處理主管回合被動扣血
+                if (p.roleId === 'manager') {
+                    p.mwp -= 5;
+                    log(`> [過勞] P${p.id} 回合自動消耗 5 MWP`);
+                }
+
+                movePlayer(roll, p);
+            }, 1000);
+        }
+
+        // --- 連線模式：擲骰與事件同步邏輯 ---
+        async function rollDiceOnline(p) {
+            const logs = [...(onlineState.roomData?.logs || [])];
+
+            if (p.mwp <= 0) {
+                await updateOnlineRoom({
+                    isResolving: true,
+                    activeModal: {
+                        playerId: p.id,
+                        icon: '🔴',
+                        title: `P${p.id} 精神崩潰`,
+                        desc: '心靈能量歸零，陷入嚴重危機。必須重新尋求社區強烈介入。',
+                        options: [
+                            { text: '接受強制休養 (跳過下回合並恢復 30 MWP)', actionType: 'collapse_recover' }
+                        ]
+                    }
+                });
+                return;
+            }
+
+            const roll = Math.floor(Math.random() * 6) + 1;
+            logs.push(`> P${p.id} 擲出了 ${roll}`);
+            if (p.roleId === 'manager') {
+                p.mwp = Math.max(0, p.mwp - 5);
+                logs.push(`> [過勞] P${p.id} 回合自動消耗 5 MWP`);
+            }
+
+            // 檢查移動過程中是否抵達第 0 格（終點）
+            let reachedFinish = false;
+            let newPos = p.pos;
+            for (let s = 0; s < roll; s++) {
+                newPos = (newPos + 1) % tiles.length;
+                if (newPos === 0) {
+                    reachedFinish = true;
+                    break;
+                }
+            }
+            p.pos = newPos;
+
+            if (reachedFinish) {
+                logs.push(`> 🏁 P${p.id} (${p.role.name}) 率先回到終點！遊戲結束！`);
+                await updateOnlineRoom({
+                    players: serializePlayers(state.players),
+                    diceDisplay: `🎲 ${roll}`,
+                    isResolving: true,
+                    status: 'finished',
+                    finisherId: p.id,
+                    activeModal: null,
+                    logs: logs.slice(-40)
+                });
+                return;
+            }
+
+            const tile = tiles[p.pos];
+            const modalObj = buildOnlineTileModal(tile, p);
+
+            await updateOnlineRoom({
+                players: serializePlayers(state.players),
+                diceDisplay: `🎲 ${roll}`,
+                isResolving: true,
+                activeModal: modalObj,
+                eventDeck: state.eventDeck,
+                lastEventIndex: state.lastEventIndex,
+                logs: logs.slice(-40)
+            });
+        }
+
+        function buildOnlineTileModal(tile, player) {
+            let title = `P${player.id} 到達：${tile.name}`;
+            let desc = "";
+            let icon = tile.icon || '⚠️';
+
+            if (tile.type === "heal") {
+                let healAmount = tile.value;
+                if (player.roleId === 'migrant') {
+                    healAmount = Math.floor(healAmount / 2);
+                    desc = `【語言隔閡】因無法流暢溝通，僅獲得部分心理支持。\n恢復了 ${healAmount} 點 MWP。`;
+                } else {
+                    desc = `透過韌性訓練或支持團體，心靈獲得滋養。\n恢復了 ${healAmount} 點 MWP。`;
+                }
+                player.mwp = Math.min(player.maxMwp, player.mwp + healAmount);
+                return {
+                    playerId: player.id, icon, title, desc,
+                    options: [{ text: "確認", actionType: "finish_turn" }]
+                };
+            }
+
+            if (tile.type === "trap") {
+                if (player.shield > 0) {
+                    player.shield--;
+                    desc = `遭遇排擠與汙名化，但利用【抗壓防護罩】抵銷了這次傷害！`;
+                } else {
+                    let dmg = tile.value;
+                    if (player.roleId === 'elderly') {
+                        dmg -= 5;
+                        desc = `遭遇社會排擠與孤立感，【社會孤立】讓獨居長者承受更大打擊！\n損失了 ${Math.abs(dmg)} 點 MWP。`;
+                    } else {
+                        desc = `遭遇社會排擠或被貼上標籤，內心受到創傷。\n損失了 ${Math.abs(dmg)} 點 MWP。`;
+                    }
+                    player.mwp = Math.max(0, player.mwp + dmg);
+                }
+                return {
+                    playerId: player.id, icon, title, desc,
+                    options: [{ text: "咬牙撐過", actionType: "finish_turn" }]
+                };
+            }
+
+            if (tile.type === "event") {
+                const ev = drawEvent();
+                title = `【命運】${ev.title}`;
+                let dmg = ev.mwp;
+
+                if (ev.type === "social" && player.roleId === 'teenager') {
+                    dmg *= 2;
+                    desc = `${ev.desc}\n【數位脆弱】青少年受社群影響加劇！`;
+                } else if (dmg < 0 && player.roleId === 'caregiver') {
+                    dmg -= 5;
+                    desc = `${ev.desc}\n【慈悲疲乏】家庭照顧者/醫護承受額外情緒耗竭 (-5)！`;
+                } else {
+                    desc = ev.desc;
+                }
+
+                if (dmg < 0 && player.shield > 0) {
+                    player.shield--;
+                    desc += `\n(防護罩啟動，抵銷了傷害！)`;
+                    dmg = 0;
+                }
+
+                if (dmg > 0) desc += `\n恢復 ${dmg} 點 MWP。`;
+                else if (dmg < 0) desc += `\n損失 ${Math.abs(dmg)} 點 MWP。`;
+
+                if (ev.shield) {
+                    player.shield += ev.shield;
+                    desc += `\n獲得 1 個防護罩。`;
+                }
+
+                player.mwp = Math.max(0, Math.min(player.maxMwp, player.mwp + dmg));
+                return {
+                    playerId: player.id, icon: '❓', title, desc,
+                    options: [{ text: "確認", actionType: "finish_turn" }]
+                };
+            }
+
+            if (tile.type === "resource") {
+                return {
+                    playerId: player.id,
+                    icon: '🌐',
+                    title: `P${player.id} 連結公衛資源`,
+                    desc: '來到社區心理衛生中心，請選擇採取的公衛介入策略：',
+                    options: [
+                        { text: "【初段預防】參加社區抗壓工作坊 (+1 防護罩)", actionType: "resource_shield" },
+                        { text: "【次段預防】早期篩檢與心理諮商 (+20 MWP)", actionType: "resource_heal" }
+                    ]
+                };
+            }
+
+            return {
+                playerId: player.id, icon, title, desc: '安全通過此格。',
+                options: [{ text: "確認", actionType: "finish_turn" }]
+            };
+        }
+
+        function renderSyncedModal(modalData) {
+            const p = state.players.find(pl => pl.id === modalData.playerId);
+            const canAct = onlineState.isHost || (p && currentUser && p.uid === currentUser.uid);
+
+            document.getElementById('modal-icon').innerText = modalData.icon || '⚠️';
+            document.getElementById('modal-title').innerText = modalData.title;
+            document.getElementById('modal-desc').innerText = modalData.desc;
+
+            const actionContainer = document.getElementById('modal-actions');
+            actionContainer.innerHTML = '';
+
+            if (!canAct) {
+                const waitBadge = document.createElement('div');
+                waitBadge.className = "text-xs font-bold text-center text-indigo-700 bg-indigo-50 py-2 px-3 rounded-lg mb-2";
+                waitBadge.innerText = `👀 同步觀戰中：等待 P${modalData.playerId} 做出選擇...`;
+                actionContainer.appendChild(waitBadge);
+            }
+
+            (modalData.options || []).forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = canAct
+                    ? "bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition w-full mb-1"
+                    : "bg-gray-100 text-gray-500 py-2 px-4 rounded-lg font-semibold w-full mb-1 cursor-not-allowed";
+                btn.innerText = opt.text;
+                btn.disabled = !canAct;
+                if (canAct) {
+                    btn.onclick = () => handleOnlineModalAction(opt, modalData.playerId);
+                }
+                actionContainer.appendChild(btn);
+            });
+
+            document.getElementById('modal-overlay').classList.remove('hidden-screen');
+        }
+
+        async function handleOnlineModalAction(opt, playerId) {
+            const p = state.players.find(pl => pl.id === playerId);
+            if (!p) return;
+            const logs = [...(onlineState.roomData?.logs || [])];
+            let skipCrisis = false;
+
+            if (opt.actionType === 'collapse_recover') {
+                p.mwp = 30;
+                p.skipTurn = true;
+                skipCrisis = true;
+                logs.push(`> 🏥 P${p.id} 接受強制休養，恢復 30 MWP 並跳過下回合。`);
+            } else if (opt.actionType === 'resource_shield') {
+                p.shield++;
+                logs.push(`> P${p.id} 採取初段預防，提升心理韌性 (+1 防護罩)。`);
+            } else if (opt.actionType === 'resource_heal') {
+                let heal = 20;
+                if (p.roleId === 'migrant') {
+                    heal = 10;
+                    logs.push(`> [健康不平等] P${p.id}(移工) 因語言隔閡，次段預防效果減半 (+10)。`);
+                } else if (p.roleId === 'rural') {
+                    heal = 15;
+                    logs.push(`> [地理治療缺口] P${p.id}(偏鄉青年) 因資源可近性受限，補血減少 5 點 (+15)。`);
+                } else {
+                    logs.push(`> P${p.id} 採取次段預防，緩解了症狀 (+20)。`);
+                }
+                p.mwp = Math.min(p.maxMwp, p.mwp + heal);
+            } else if (opt.actionType === 'crisis_pass') {
+                p.mwp = Math.min(p.maxMwp, p.mwp + (opt.heal || 15));
+                logs.push(`> ✅ P${p.id} 正確運用公衛知識！危機解除，恢復 ${opt.heal || 15} MWP。`);
+                skipCrisis = true;
+            } else if (opt.actionType === 'crisis_fail') {
+                if (p.roleId === 'postpartum') {
+                    p.mwp = Math.max(0, p.mwp - 5);
+                    logs.push(`> ❌ P${p.id}(產後家長) 求助觀念錯誤，因育兒高壓額外消耗 5 MWP。`);
+                } else {
+                    logs.push(`> ❌ P${p.id} 求助觀念錯誤，未獲得有效資源，狀態持續低迷。`);
+                }
+                skipCrisis = true;
+            }
+
+            // 檢查是否觸發心理危機搶答
+            if (!skipCrisis && p.mwp > 0 && p.mwp <= 40) {
+                const isModerate = p.mwp <= 20;
+                const healAmount = isModerate ? 25 : 15;
+                const selectedQ = drawQuestion(isModerate);
+                const crisisOptions = shuffleArray(selectedQ.options).map(o => ({
+                    text: o.text,
+                    actionType: o.correct ? 'crisis_pass' : 'crisis_fail',
+                    heal: healAmount
+                }));
+
+                await updateOnlineRoom({
+                    players: serializePlayers(state.players),
+                    mildDeck: state.mildDeck,
+                    moderateDeck: state.moderateDeck,
+                    lastQuestionKey: state.lastQuestionKey,
+                    activeModal: {
+                        playerId: p.id,
+                        icon: isModerate ? '🟠' : '🟡',
+                        title: isModerate ? `P${p.id} 中度心理危機` : `P${p.id} 輕度焦慮危機`,
+                        desc: selectedQ.desc,
+                        options: crisisOptions
+                    },
+                    logs: logs.slice(-40)
+                });
+                return;
+            }
+
+            // 進入下一位玩家回合（自動略過強制休養中玩家）
+            let nextIdx = state.currentPlayerIndex;
+            let nextTurn = state.turn;
+            for (let guard = 0; guard < state.players.length + 1; guard++) {
+                nextIdx++;
+                if (nextIdx >= state.players.length) {
+                    nextIdx = 0;
+                    nextTurn++;
+                }
+                const candidate = state.players[nextIdx];
+                if (candidate.skipTurn) {
+                    candidate.skipTurn = false;
+                    logs.push(`> P${candidate.id} 正在強制休養，跳過此回合。`);
+                } else {
+                    break;
+                }
+            }
+
+            await updateOnlineRoom({
+                players: serializePlayers(state.players),
+                currentPlayerIndex: nextIdx,
+                turn: nextTurn,
+                isResolving: false,
+                activeModal: null,
+                logs: logs.slice(-40)
+            });
+        }
+
+        function movePlayer(steps, player) {
+            let currentStep = 0;
+            let moveAnim = setInterval(() => {
+                player.pos = (player.pos + 1) % tiles.length;
+                updatePlayerPos();
+                currentStep++;
+
+                // 只要繞行一圈回到第 0 格（終點），立即停下並結束遊戲
+                if (player.pos === 0) {
+                    clearInterval(moveAnim);
+                    log(`> 🏁 P${player.id} (${player.role.name}) 率先回到終點！遊戲結束！`);
+                    setTimeout(() => endGame(player), 400);
+                    return;
+                }
+
+                if (currentStep >= steps) {
+                    clearInterval(moveAnim);
+                    setTimeout(() => resolveTile(tiles[player.pos], player), 300);
+                }
+            }, 300);
+        }
+
+        function endGame(finisher) {
+            state.isGameOver = true;
+            state.isResolving = true;
+            document.getElementById('btn-roll').disabled = true;
+            document.getElementById('btn-roll').classList.add('opacity-50');
+            updateUI();
+            renderEndGameModal(finisher);
+        }
+
+        function renderEndGameModal(finisher) {
+            // 依最終 MWP（次序為防護罩數量、是否率先抵達終點）進行排名
+            const rankedPlayers = [...state.players].sort((a, b) => {
+                if (b.mwp !== a.mwp) return b.mwp - a.mwp;
+                if (b.shield !== a.shield) return b.shield - a.shield;
+                return a.id === finisher.id ? -1 : 1;
+            });
+
+            const champion = rankedPlayers[0];
+
+            const rankingHtml = rankedPlayers.map((p, idx) => {
+                const isFinisher = p.id === finisher.id;
+                const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+                const highlight = idx === 0 ? "bg-indigo-50 border-indigo-300" : "bg-gray-50 border-gray-200";
+                const displayName = p.teamName ? `${p.teamName}・${p.role.name}` : p.role.name;
+                return `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg border ${highlight} text-left">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold w-6 text-center">${medal}</span>
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold token-${p.id}">P${p.id}</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">
+                                    ${p.role.icon} ${displayName}
+                                    ${isFinisher ? '<span class="ml-1 text-[11px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">🏁 終點</span>' : ''}
+                                </div>
+                                <div class="text-xs text-gray-500">🛡️ 防護罩：${p.shield}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-extrabold text-indigo-600">${p.mwp} <span class="text-xs font-normal text-gray-500">MWP</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const summaryHtml = `
+                <p class="mb-3 text-sm text-gray-600">
+                    <strong>P${finisher.id} (${finisher.teamName || finisher.role.name})</strong> 率先繞行一圈回到終點！<br>
+                    本局共進行 <strong>${state.turn}</strong> 回合，由 <strong>P${champion.id}</strong> 奪得心靈韌性冠軍！
+                </p>
+                <div class="flex flex-col gap-2 max-h-56 overflow-y-auto mb-2">
+                    ${rankingHtml}
+                </div>
+            `;
+
+            document.getElementById('modal-icon').innerText = '🏆';
+            document.getElementById('modal-title').innerText = '遊戲結束・最終結算';
+            document.getElementById('modal-desc').innerHTML = summaryHtml;
+
+            const actionContainer = document.getElementById('modal-actions');
+            actionContainer.innerHTML = '';
+
+            if (onlineState.mode === 'online') {
+                if (onlineState.isHost) {
+                    const restartBtn = document.createElement('button');
+                    restartBtn.className = "bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition w-full";
+                    restartBtn.innerText = "🔄 房主開啟新局（返回房間大廳）";
+                    restartBtn.onclick = resetOnlineRoomToLobby;
+                    actionContainer.appendChild(restartBtn);
+                } else {
+                    const waitMsg = document.createElement('div');
+                    waitMsg.className = "text-xs text-center text-gray-500 py-2";
+                    waitMsg.innerText = "等待房主開啟下一局，或可關閉視窗離開房間。";
+                    actionContainer.appendChild(waitMsg);
+                }
+            } else {
+                const restartBtn = document.createElement('button');
+                restartBtn.className = "bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition w-full";
+                restartBtn.innerText = "🔄 再玩一局（重新選擇角色）";
+                restartBtn.onclick = resetGame;
+                actionContainer.appendChild(restartBtn);
+            }
+
+            document.getElementById('modal-overlay').classList.remove('hidden-screen');
+        }
+
+        async function resetOnlineRoomToLobby() {
+            if (!onlineState.isHost) return;
+            initDecks();
+            await updateOnlineRoom({
+                status: 'lobby',
+                players: [],
+                currentPlayerIndex: 0,
+                turn: 1,
+                isResolving: false,
+                diceDisplay: '🎲',
+                finisherId: null,
+                activeModal: null,
+                mildDeck: state.mildDeck,
+                moderateDeck: state.moderateDeck,
+                eventDeck: state.eventDeck,
+                lastEventIndex: -1,
+                lastQuestionKey: null,
+                logs: [`> 房主已重開新局，請各組重新選擇角色加入！`]
+            });
+        }
+
+        function resetGame() {
+            closeModal();
+            state.players = [];
+            state.currentPlayerIndex = 0;
+            state.turn = 1;
+            state.isResolving = false;
+            state.isGameOver = false;
+            initDecks();
+
+            document.getElementById('role-cards').classList.remove('opacity-50', 'pointer-events-none');
+            document.getElementById('event-log').innerHTML = '<div>> 系統重新啟動，等待選擇角色...</div>';
+            document.getElementById('screen-game').classList.add('hidden-screen');
+            document.getElementById('turn-counter').classList.add('hidden');
+            document.getElementById('screen-role-select').classList.remove('hidden-screen');
+
+            renderJoinedPlayers();
+        }
+
+        function resolveTile(tile, player) {
+            let title = `P${player.id} 到達：${tile.name}`;
+            let desc = "";
+            let actions = [];
+
+            if (tile.type === "heal") {
+                let healAmount = tile.value;
+                if (player.roleId === 'migrant') {
+                    healAmount = Math.floor(healAmount / 2);
+                    desc = `【語言隔閡】因無法流暢溝通，僅獲得部分心理支持。\n恢復了 ${healAmount} 點 MWP。`;
+                } else {
+                    desc = `透過韌性訓練或支持團體，心靈獲得滋養。\n恢復了 ${healAmount} 點 MWP。`;
+                }
+                player.mwp += healAmount;
+                actions = [{ text: "確認", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+                
+            } else if (tile.type === "trap") {
+                if (player.shield > 0) {
+                    player.shield--;
+                    desc = `遭遇排擠與汙名化，但利用【抗壓防護罩】抵銷了這次傷害！`;
+                } else {
+                    let dmg = tile.value;
+                    if (player.roleId === 'elderly') {
+                        dmg -= 5;
+                        desc = `遭遇社會排擠與孤立感，【社會孤立】讓獨居長者承受更大打擊！\n損失了 ${Math.abs(dmg)} 點 MWP。`;
+                    } else {
+                        desc = `遭遇社會排擠或被貼上標籤，內心受到創傷。\n損失了 ${Math.abs(dmg)} 點 MWP。`;
+                    }
+                    player.mwp += dmg;
+                }
+                actions = [{ text: "咬牙撐過", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+
+            } else if (tile.type === "event") {
+                const ev = drawEvent();
+                title = `【命運】${ev.title}`;
+                let dmg = ev.mwp;
+                
+                if (ev.type === "social" && player.roleId === 'teenager') {
+                    dmg *= 2; 
+                    desc = `${ev.desc}\n【數位脆弱】青少年受社群影響加劇！`;
+                } else if (dmg < 0 && player.roleId === 'caregiver') {
+                    dmg -= 5;
+                    desc = `${ev.desc}\n【慈悲疲乏】家庭照顧者/醫護承受額外情緒耗竭 (-5)！`;
+                } else {
+                    desc = ev.desc;
+                }
+
+                if (dmg < 0 && player.shield > 0) {
+                     player.shield--;
+                     desc += `\n(防護罩啟動，抵銷了傷害！)`;
+                     dmg = 0;
+                }
+
+                if (dmg > 0) desc += `\n恢復 ${dmg} 點 MWP。`;
+                else if (dmg < 0) desc += `\n損失 ${Math.abs(dmg)} 點 MWP。`;
+
+                if (ev.shield) {
+                    player.shield += ev.shield;
+                    desc += `\n獲得 1 個防護罩。`;
+                }
+
+                player.mwp += dmg;
+                actions = [{ text: "確認", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+
+            } else if (tile.type === "resource") {
+                title = `🌐 P${player.id} 連結公衛資源`;
+                desc = "來到社區心理衛生中心，請選擇採取的公衛介入策略：";
+                actions = [
+                    { 
+                        text: "【初段預防】參加社區抗壓工作坊 (+1 防護罩)", 
+                        action: () => { 
+                            player.shield++; 
+                            log(`> P${player.id} 採取初段預防，提升心理韌性。`);
+                            finishTurn(); 
+                        } 
+                    },
+                    { 
+                        text: "【次段預防】早期篩檢與心理諮商 (+20 MWP)", 
+                        action: () => { 
+                            let heal = 20;
+                            if (player.roleId === 'migrant') {
+                                heal = 10;
+                                log(`> [健康不平等] P${player.id}(移工) 因語言隔閡，次段預防效果減半 (+10)。`);
+                            } else if (player.roleId === 'rural') {
+                                heal = 15;
+                                log(`> [地理治療缺口] P${player.id}(偏鄉青年) 因資源可近性受限，補血減少 5 點 (+15)。`);
+                            } else {
+                                log(`> P${player.id} 採取次段預防，緩解了症狀 (+20)。`);
+                            }
+                            player.mwp += heal; 
+                            finishTurn(); 
+                        } 
+                    }
+                ];
+                showModal(title, desc, actions);
+            } else {
+                finishTurn();
+            }
+        }
+
+        function finishTurn(skipCrisis = false) {
+            closeModal();
+            updateUI();
+            
+            const p = state.players[state.currentPlayerIndex];
+            
+            // 檢查是否觸發危機機制 (PFA)
+            if (!skipCrisis && p.mwp > 0 && p.mwp <= 40) {
+                triggerCrisis(p);
+            } else {
+                nextPlayerTurn();
+            }
+        }
+
+        function nextPlayerTurn() {
+            state.currentPlayerIndex++;
+            
+            // 回合結束，換下一輪
+            if (state.currentPlayerIndex >= state.players.length) {
+                state.currentPlayerIndex = 0;
+                state.turn++;
+            }
+
+            const nextP = state.players[state.currentPlayerIndex];
+            
+            // 檢查是否處於強制休養狀態
+            if (nextP.skipTurn) {
+                nextP.skipTurn = false;
+                log(`> P${nextP.id} 正在強制休養，跳過此回合。`);
+                updateUI();
+                setTimeout(() => {
+                    nextPlayerTurn(); // 遞迴呼叫直到找到可以行動的玩家
+                }, 1000);
+                return;
+            }
+
+            // 準備下一個玩家的 UI
+            state.isResolving = false;
+            document.getElementById('btn-roll').disabled = false;
+            document.getElementById('btn-roll').classList.remove('opacity-50');
+            updateUI();
+        }
+
+        function triggerCrisis(player) {
+            const isModerate = player.mwp <= 20;
+            const title = isModerate ? `🟠 P${player.id} 中度心理危機` : `🟡 P${player.id} 輕度焦慮危機`;
+            const healAmount = isModerate ? 25 : 15;
+
+            // 從牌庫抽出不重複題目，並將選項順序洗牌
+            const selectedQ = drawQuestion(isModerate);
+            const shuffledOptions = shuffleArray(selectedQ.options).map(opt => ({
+                text: opt.text,
+                action: () => opt.correct ? passCrisis(player, healAmount) : failCrisis(player)
+            }));
+
+            showModal(title, selectedQ.desc, shuffledOptions);
+        }
+
+        function passCrisis(player, heal) {
+            player.mwp += heal;
+            log(`> ✅ P${player.id} 正確運用公衛知識！危機解除，恢復 ${heal} MWP。`);
+            closeModal();
+            updateUI();
+            nextPlayerTurn();
+        }
+
+        function failCrisis(player) {
+            if (player.roleId === 'postpartum') {
+                player.mwp -= 5;
+                log(`> ❌ P${player.id}(產後家長) 求助觀念錯誤，因育兒高壓額外消耗 5 MWP。`);
+            } else {
+                log(`> ❌ P${player.id} 求助觀念錯誤，未獲得有效資源，狀態持續低迷。`);
+            }
+            closeModal();
+            updateUI();
+            nextPlayerTurn();
+        }
+
+        // --- UI 控制 ---
+        function showModal(title, desc, actions, icon = '⚠️') {
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            
+            const actionContainer = document.getElementById('modal-actions');
+            actionContainer.innerHTML = '';
+            
+            actions.forEach(act => {
+                const btn = document.createElement('button');
+                btn.className = "bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition w-full mb-2";
+                btn.innerText = act.text;
+                btn.onclick = act.action;
+                actionContainer.appendChild(btn);
+            });
+
+            document.getElementById('modal-overlay').classList.remove('hidden-screen');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden-screen');
+        }
+
+        // 將事件處理函式掛載到 window，供 HTML 按鈕呼叫
+        window.switchMode = switchMode;
+        window.createOnlineRoom = createOnlineRoom;
+        window.joinOnlineRoom = joinOnlineRoom;
+        window.leaveOnlineRoom = leaveOnlineRoom;
+        window.copyRoomCode = copyRoomCode;
+        window.joinPlayer = joinPlayer;
+        window.quickFillSevenTeams = quickFillSevenTeams;
+        window.clearPlayers = clearPlayers;
+        window.startMultiplayerGame = startMultiplayerGame;
+        window.rollDice = rollDice;
+        window.closeModal = closeModal;
+
+    </script>
+</body>
+</html>
